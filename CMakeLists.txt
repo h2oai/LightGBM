@@ -116,7 +116,7 @@ if(USE_HDFS)
 endif(USE_HDFS)
 
 if(UNIX OR MINGW OR CYGWIN)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -O3 -Wextra -Wall -Wno-ignored-attributes -Wno-unknown-pragmas -Wno-return-type")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -O1 -Wextra -Wall -Wno-ignored-attributes -Wno-unknown-pragmas -Wno-return-type")
     if(USE_SWIG)
         SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
     endif()
