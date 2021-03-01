@@ -16,6 +16,8 @@
 #include <limits>
 #include <sstream>
 #include <unordered_map>
+#include <time.h>
+#include <sys/time.h>
 
 namespace LightGBM {
 
@@ -104,10 +106,18 @@ std::vector<std::vector<int>> FindGroups(
     data_size_t num_data, bool is_use_gpu, bool is_sparse,
     std::vector<int8_t>* multi_val_group) {
   const int max_search_group = 100;
+  const int max_feature_group = 10000;
   const int max_bin_per_group = 256;
   const data_size_t single_val_max_conflict_cnt =
       static_cast<data_size_t>(total_sample_cnt / 10000);
   multi_val_group->clear();
+
+  struct timeval tv;
+  unsigned long long time_in_micros;
+  unsigned long long time_in_micros0;
+  gettimeofday(&tv,NULL);
+  time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+  Log::Info("1: %lld", time_in_micros);
 
   Random rand(num_data);
   std::vector<std::vector<int>> features_in_group;
@@ -116,15 +126,35 @@ std::vector<std::vector<int>> FindGroups(
   std::vector<data_size_t> group_total_data_cnt;
   std::vector<int> group_num_bin;
 
+  gettimeofday(&tv,NULL);
+  time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+  Log::Info("2: %lld", time_in_micros);
+
   // first round: fill the single val group
   for (auto fidx : find_order) {
+    gettimeofday(&tv,NULL);
+    time_in_micros0 = 1000000 * tv.tv_sec + tv.tv_usec;
+    Log::Info("start: %d %lld %d", fidx, time_in_micros0, features_in_group.size());
     bool is_filtered_feature = fidx >= num_sample_col;
     const data_size_t cur_non_zero_cnt =
         is_filtered_feature ? 0 : num_per_col[fidx];
-    std::vector<int> available_groups;
-    for (int gid = 0; gid < static_cast<int>(features_in_group.size()); ++gid) {
-      auto cur_num_bin = group_num_bin[gid] + bin_mappers[fidx]->num_bin() +
+    std::vector<int> indices0;
+    gettimeofday(&tv,NULL);
+    time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+    Log::Info("2.3: %d %lld", fidx, time_in_micros - time_in_micros0);
+    if (!features_in_group.empty()) {
+      int last = static_cast<int>(features_in_group.size()) - 1;
+      indices0 = rand.Sample(last, std::min(last, max_feature_group - 1));
+    }
+    gettimeofday(&tv,NULL);
+    time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+    Log::Info("2.5: %d %lld %d", fidx, time_in_micros - time_in_micros0, indices0.size());
+    auto bin_part = bin_mappers[fidx]->num_bin() +
                          (bin_mappers[fidx]->GetDefaultBin() == 0 ? -1 : 0);
+    std::vector<int> available_groups;
+    for (int gidi = 0; gidi < static_cast<int>(indices0.size()); ++gidi) {
+      auto gid = indices0[gidi];
+      auto cur_num_bin = group_num_bin[gid] + bin_part;
       if (group_total_data_cnt[gid] + cur_non_zero_cnt <=
           total_sample_cnt + single_val_max_conflict_cnt) {
         if (!is_use_gpu || cur_num_bin <= max_bin_per_group) {
@@ -132,6 +162,9 @@ std::vector<std::vector<int>> FindGroups(
         }
       }
     }
+    gettimeofday(&tv,NULL);
+    time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+    Log::Info("3: %lld", time_in_micros - time_in_micros0);
     std::vector<int> search_groups;
     if (!available_groups.empty()) {
       int last = static_cast<int>(available_groups.size()) - 1;
@@ -142,6 +175,9 @@ std::vector<std::vector<int>> FindGroups(
         search_groups.push_back(available_groups[idx]);
       }
     }
+    gettimeofday(&tv,NULL);
+    time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+    Log::Info("4: %d %lld", search_groups.size(), time_in_micros - time_in_micros0);
     int best_gid = -1;
     int best_conflict_cnt = -1;
     for (auto gid : search_groups) {
@@ -159,6 +195,9 @@ std::vector<std::vector<int>> FindGroups(
         break;
       }
     }
+    gettimeofday(&tv,NULL);
+    time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+    Log::Info("5: %lld", time_in_micros - time_in_micros0);
     if (best_gid >= 0) {
       features_in_group[best_gid].push_back(fidx);
       group_total_data_cnt[best_gid] += cur_non_zero_cnt;
@@ -184,7 +223,13 @@ std::vector<std::vector<int>> FindGroups(
           1 + bin_mappers[fidx]->num_bin() +
           (bin_mappers[fidx]->GetDefaultBin() == 0 ? -1 : 0));
     }
+    gettimeofday(&tv,NULL);
+    time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+    Log::Info("6: %lld", time_in_micros - time_in_micros0);
   }
+  gettimeofday(&tv,NULL);
+  time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+  Log::Info("7: %lld", time_in_micros);
   if (!is_sparse) {
     multi_val_group->resize(features_in_group.size(), false);
     return features_in_group;
@@ -193,6 +238,7 @@ std::vector<std::vector<int>> FindGroups(
   std::vector<std::vector<int>> features_in_group2;
   std::vector<std::vector<bool>> conflict_marks2;
 
+  Log::Info("8");
   const double dense_threshold = 0.4;
   for (int gid = 0; gid < static_cast<int>(features_in_group.size()); ++gid) {
     const double dense_rate =
@@ -207,6 +253,7 @@ std::vector<std::vector<int>> FindGroups(
     }
   }
 
+  Log::Info("9");
   features_in_group = features_in_group2;
   conflict_marks = conflict_marks2;
   multi_val_group->resize(features_in_group.size(), false);
@@ -233,6 +280,7 @@ std::vector<std::vector<int>> FindGroups(
     }
     multi_val_group->push_back(is_multi_val);
   }
+  Log::Info("10");
   return features_in_group;
 }
 
