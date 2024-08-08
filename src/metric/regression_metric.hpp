@@ -51,7 +51,8 @@ class RegressionMetric: public Metric {
       }
     }
     for (data_size_t i = 0; i < num_data_; ++i) {
-      PointWiseLossCalculator::CheckLabel(label_[i]);
+      Log::Info("label value = %f at %d\n", label_[i], i);
+      PointWiseLossCalculator::CheckLabel(label_[i], i);
     }
   }
 
@@ -98,7 +99,7 @@ class RegressionMetric: public Metric {
     return sum_loss / sum_weights;
   }
 
-  inline static void CheckLabel(label_t) {
+  inline static void CheckLabel(label_t, data_size_t) {
   }
 
  private:
@@ -270,8 +271,10 @@ class GammaMetric : public RegressionMetric<GammaMetric> {
     return "gamma";
   }
 
-  inline static void CheckLabel(label_t label) {
-    CHECK_GT(label, 0);
+  inline static void CheckLabel(label_t label, data_size_t i) {
+    if (label <= 0) {
+        Log::Fatal("GammaMetric check fail: %d th label which is %f less or equals to zero", i, label);
+    }
   }
 };
 
@@ -292,8 +295,10 @@ class GammaDevianceMetric : public RegressionMetric<GammaDevianceMetric> {
   inline static double AverageLoss(double sum_loss, double) {
     return sum_loss * 2;
   }
-  inline static void CheckLabel(label_t label) {
-    CHECK_GT(label, 0);
+  inline static void CheckLabel(label_t label, data_size_t i) {
+      if (label <= 0) {
+          Log::Fatal("GammaDevianceMetric check fail: %d th label which is %f less or equals to zero", i, label);
+      }
   }
 };
 
