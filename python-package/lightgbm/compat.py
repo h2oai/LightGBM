@@ -229,7 +229,7 @@ try:
 except pkg_resources.DistributionNotFound:
     DASK_INSTALLED = False
 
-mport pyarrow.compute as pa_compute
+import pyarrow.compute as pa_compute
     from pyarrow import Array as pa_Array
     from pyarrow import ChunkedArray as pa_ChunkedArray
     from pyarrow import Table as pa_Table
