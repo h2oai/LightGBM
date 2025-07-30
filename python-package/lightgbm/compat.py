@@ -229,6 +229,8 @@ try:
 except pkg_resources.DistributionNotFound:
     DASK_INSTALLED = False
 
+"""pyarrow"""
+try:
     import pyarrow.compute as pa_compute
     from pyarrow import Array as pa_Array
     from pyarrow import ChunkedArray as pa_ChunkedArray
