@@ -222,12 +222,10 @@ except ImportError:
 
 
 """dask"""
-try:
-    import pkg_resources
-    pkg_resources.get_distribution('dask')
-    DASK_INSTALLED = True
-except pkg_resources.DistributionNotFound:
-    DASK_INSTALLED = False
+# DAI does not support dask, so the Dask estimators are never enabled and dask is
+# never imported here (see __init__.py). This also avoids ``pkg_resources``, which
+# was removed from setuptools in version 82.
+DASK_INSTALLED = False
 
 """pyarrow"""
 try:
