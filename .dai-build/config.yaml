@@ -1,0 +1,8 @@
+# Build configuration for the DAI dependency build workflow, validated before
+# anything is built.
+schema: 1
+python: "3.11"
+cuda_image: cuda:12.8.1-cudnn-devel-rockylinux8
+# What the CMakeLists CUDA_ARCHS trim must produce; verified with cuobjdump.
+cuda_archs: "60;70;75;80;90;100;120"
+arches: [x86_64, aarch64]
